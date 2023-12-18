@@ -1,0 +1,64 @@
+import processing.serial.*;
+
+Serial myPort;  // Create object from Serial class
+color bgColor = color(255);  // Default background color
+
+float temperature = 0;  // Variable to store temperature data from Arduino
+float weight = 0;       // Variable to store weight data from Arduino
+
+void setup() {
+  size(200, 200);
+  // Replace "COM3" with your Arduino port
+  myPort = new Serial(this, "COM3", 9600);
+}
+
+void draw() {
+  background(bgColor);
+  textSize(16);
+  fill(0);
+
+  // Check for incoming data from Arduino
+  while (myPort.available() > 0) {
+    String data = myPort.readStringUntil('\n');
+    if (data != null) {
+      data = data.trim();
+      println("Received from Arduino: " + data);
+
+      if (data.equals("Black")) {
+        println("Received Color: Black");
+        bgColor = color(0, 0, 0);  // Set background color to red
+      } else if (data.equals("Yellow")) {
+        println("Received Color: Yellow");
+        bgColor = color(255, 255, 0);  // Set background color to green
+      } else if (data.equals("Unknown")) {
+        println("Received Color: Unknown");
+        bgColor = color(128);  // Set background color to gray for unknown
+      } else if (data.startsWith("Suhu:")) {
+        handleTemperatureAndWeight(data);
+      } else {
+        println("Invalid data format: " + data);
+      }
+    }
+  }
+
+  // Display temperature and weight information on the sketch
+  textAlign(CENTER, CENTER);
+  text("Temperature: " + nf(temperature, 2, 1) + " °C", width / 2, height / 2 - 20);
+  text("Weight: " + nf(weight, 2, 2) + " kg", width / 2, height / 2 + 20);
+}
+
+void handleTemperatureAndWeight(String data) {
+  // Extract temperature and weight data
+  String[] values = split(data, ',');
+  if (values.length >= 2) {
+    temperature = float(values[0].substring(6).trim());
+    weight = float(values[1].substring(7).trim());
+  } else {
+    println("Invalid data format: " + data);
+  }
+}
+
+void mousePressed() {
+  // Send reset command to Arduino
+  myPort.write("RESET\n");
+}
