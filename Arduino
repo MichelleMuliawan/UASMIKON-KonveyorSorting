@@ -1,0 +1,144 @@
+#include <Servo.h>
+#include "HX711.h"
+#include <Adafruit_MLX90614.h>
+
+Adafruit_MLX90614 mlx = Adafruit_MLX90614();
+
+const int relay = 12;
+
+const int loadCellDoutPin = 9;
+const int loadCellSckPin = 10;
+
+HX711 scale;
+
+Servo servo1;
+const int servo1Pin = 11;
+Servo servo2;
+const int servo2Pin = 3;
+
+const int S0 = 4;
+const int S1 = 5;
+const int S2 = 6;
+const int S3 = 7;
+const int sensorOut = 8;
+
+int redFrequency = 0;
+int greenFrequency = 0;
+int blueFrequency = 0;
+
+int object_temp_c;
+void setup()
+{
+  Serial.begin(9600);
+
+  pinMode(relay, OUTPUT);
+
+  scale.begin(loadCellDoutPin, loadCellSckPin);
+
+  servo1.attach(servo1Pin);
+  servo2.attach(servo2Pin);
+
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(sensorOut, INPUT);
+
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);
+
+  mlx.begin();
+}
+
+void loop()
+{
+  digitalWrite(relay, HIGH);
+  delay(3000);
+  digitalWrite(relay, LOW);
+
+  servo2.write(0);
+
+  float weight = measureWeight();
+
+  if (weight <= 0.11)
+  {
+    Serial.println("kanan");
+    servo1.write(270);
+    delay(500);
+  } else
+  {
+    Serial.println("kiri");
+    servo1.write(90);
+    delay(500);
+
+    redFrequency = pulseIn(sensorOut, LOW);
+    //Serial.print("R = ");
+    Serial.print(redFrequency);
+
+    greenFrequency = pulseIn(sensorOut, LOW);
+    //Serial.print(" G = ");
+    Serial.print(greenFrequency);
+
+    blueFrequency = pulseIn(sensorOut, LOW);
+    //Serial.print(" B = ");
+    Serial.println(blueFrequency);
+
+    determineColor(redFrequency, greenFrequency, blueFrequency);
+  }
+
+  readTemperatureAndWeight();
+}
+
+float measureWeight()
+{
+  long rawValue = scale.read();
+  float calibrationFactor = -5000000;
+  float weight = rawValue / calibrationFactor;
+  return weight;
+}
+
+void determineColor(int red, int green, int blue) {
+  if (100 < green && green < 130 && 100 < red && red < 130 && 100 < blue && blue < 130 && object_temp_c < 20)
+  {
+    Serial.println("Color: Black");
+    servo2.write(90);
+  }
+  else if (50 < green && green < 89 && 50 < red && red < 89 && 50 < blue && blue < 89 && object_temp_c > 20)
+  {
+    Serial.println("Color: Yellow");
+    servo2.write(45);
+  }
+  else
+  {
+    Serial.println("Color: Unknown");
+  }
+}
+
+void readTemperatureAndWeight()
+{
+   object_temp_c = mlx.readObjectTempC();
+  int ambient_temp_c = mlx.readAmbientTempC();
+ 
+  // Send temperature information to Processing
+  Serial.println("---------------------");
+  Serial.print("Object Temperature = ");
+  Serial.print(object_temp_c);
+  Serial.println(" \xC2\xB0 ");
+
+  Serial.print("Ambient Temperature = ");
+  Serial.print(ambient_temp_c);
+  Serial.println(" \xC2\xB0 ");;
+
+  Serial.println("---------------------");
+
+  float weight = measureWeight();
+  Serial.print("Weight: ");
+  Serial.print(weight);
+  Serial.println(" kg");
+
+  // Send data to Processing
+  Serial.print("Suhu: ");
+  Serial.print(object_temp_c);  
+  Serial.print(", Weight: ");
+  Serial.println(weight);
+}
